@@ -4,6 +4,12 @@ from pydantic import BaseModel
 from models.agent_config import AgentConfig
 
 
+
+class AgentOutput(BaseModel):
+    content: types.Content
+    duration: float
+
+
 class Agent(ABC):
     
     agent_config: AgentConfig
@@ -17,13 +23,16 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def generate_response(self, text: str):
+    def generate_response(self, text: str) -> AgentOutput:
+        pass
+    @abstractmethod
+    def process_output(self, output: AgentOutput) -> types.Content:
         pass
 
-class AgentOutput(BaseModel):
-    content: types.Content
-    duration: float
 
+class AgentCall(BaseModel):
+    name: str = None
+    query: str = None
 
 class WorkerAgent(Agent):
     pass
@@ -32,6 +41,17 @@ class MasterAgent(Agent):
     @abstractmethod
     def add_worker_agent(self, worker_agent: Agent):
         pass
+    @abstractmethod
+    def add_user_content_history(self, content: types.Content):
+        pass
+
+    @abstractmethod
+    def add_model_text_history(self, text: str):
+        pass
+    @abstractmethod
+    def process_output(self, output: AgentOutput) -> AgentCall:
+        pass
+
 
 
 

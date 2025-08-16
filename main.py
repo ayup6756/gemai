@@ -1,22 +1,75 @@
 import os
 import dotenv
 
-from agents.gemini_flash import GeminiFlash
+from agents.gemini import GeminiFlash, GeminiImage
+from models.agent import AgentCall
+from models.agent_config import AgentConfig
+from utils.agent_call import identify_agent_call
 from utils.display import TerminalDisplay
+
 dotenv.load_dotenv()
 
 GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
 
 
 def main():
+    master = GeminiFlash(
+        agent_config=AgentConfig(
+            api_key=GOOGLE_API_KEY,
+            model_name="gemini-2.0-flash",
+            save_history=True,
+            description="Master agent",
+            main_prompt="you are useful assistant.",
+            agent_id="main",
+        )
+    )
 
-   term_display = TerminalDisplay()
+    gemini_image_agent = GeminiImage(
+        agent_config=AgentConfig(
+            api_key=GOOGLE_API_KEY,
+            model_name="gemini-2.0-flash-preview-image-generation",
+            save_history=True,
+            description="This agent can generate image from a given text",
+            main_prompt="you are useful assistant.",
+            agent_id="image_gen",
+            notify_master=False
+        )
+    )
 
-   gemini_flash_agent = GeminiFlash(
-       
-   )
+    master.add_worker_agent(gemini_image_agent)
 
-   while True:
-        pass
+    take_user_input = True
+    while True:
+        if take_user_input:
+            user_input = input("user> ")
+        else:
+            # will take user input in next iteration
+            take_user_input = True
+
+        output = master.generate_response(user_input)
+        user_input = None
+
+        if not output:
+            continue
+
+        print(f"Took {output.duration} seconds")
+        agent_call_data = master.process_output(output=output)
+
+        if agent_call_data.name and agent_call_data.query:
+
+            print(agent_call_data.name + ">")
+
+            worker_agent = master.agents[agent_call_data.name]
+            output = worker_agent.generate_response(agent_call_data.query)
+
+            if output:
+                print(f"Took {output.duration} seconds")
+                master.add_model_history(
+                    worker_agent.process_output(output=output)
+                )
+                # redirect to user if notify master is false
+                take_user_input = False if worker_agent.agent_config.notify_master else True
+            else:
+                master.add_model_text_history("Agent failed")
 
 main()
