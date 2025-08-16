@@ -2,7 +2,6 @@ from io import BytesIO
 import os
 import shutil
 import subprocess
-import tempfile
 import time
 from PIL import Image
 
@@ -11,7 +10,6 @@ from config.config import Config
 
 class TerminalDisplay:
     def __init__(self):
-        # self.tempdir = tempfile.TemporaryDirectory()
         self.glow_available = shutil.which("glow") is not None
         self.kitten_available = shutil.which("kitten") is not None
 
@@ -40,4 +38,3 @@ class TerminalDisplay:
 
     def __del__(self):
         pass
-        # self.tempdir.cleanup()

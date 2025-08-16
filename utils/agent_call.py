@@ -1,5 +1,4 @@
 import re
-from typing import Union
 from models.agent import AgentCall
 
 

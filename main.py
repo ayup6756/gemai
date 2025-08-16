@@ -2,10 +2,7 @@ import os
 import dotenv
 
 from agents.gemini import GeminiFlash, GeminiImage
-from models.agent import AgentCall
 from models.agent_config import AgentConfig
-from utils.agent_call import identify_agent_call
-from utils.display import TerminalDisplay
 
 dotenv.load_dotenv()
 
