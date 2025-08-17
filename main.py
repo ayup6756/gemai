@@ -2,6 +2,8 @@ import os
 import dotenv
 
 from agents.gemini import GeminiFlash, GeminiImage
+from agents.tools.get_time_tool import GetTimeTool
+from agents.tools.scrape_page_tool import ScrapePageTool
 from models.agent_config import AgentConfig
 
 dotenv.load_dotenv()
@@ -29,11 +31,15 @@ def main():
             description="This agent can generate image from a given text",
             main_prompt="you are useful image generator you generate high quality images.",
             agent_id="image_gen",
-            notify_master=True
+            take_user_input=False
         )
     )
 
     master.add_worker_agent(gemini_image_agent)
+    master.add_tool(GetTimeTool())
+    master.add_tool(ScrapePageTool())
+
+    print(master.main_prompt)
 
     take_user_input = True
     while True:
@@ -52,6 +58,7 @@ def main():
 
         print(f"Took {output.duration} seconds")
         agent_call_data = master.process_output(output=output)
+        take_user_input |= master.agent_config.take_user_input
 
         if agent_call_data.name and agent_call_data.query:
 
@@ -66,8 +73,9 @@ def main():
                     worker_agent.process_output(output=output)
                 )
                 # redirect to user if notify master is false
-                take_user_input = False if worker_agent.agent_config.notify_master else True
+                take_user_input |= worker_agent.agent_config.take_user_input
             else:
                 master.add_user_history("Agent failed")
+    
 
 main()

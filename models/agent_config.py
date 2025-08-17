@@ -25,7 +25,8 @@ class AgentConfig(BaseModel):
         description="id for identifying the agent"
     )
 
-    notify_master: bool = Field(
+    # works as state too
+    take_user_input: bool = Field(
         default=True,
-        description="if true it will send response to master and generate response if false it will take user input"
+        description="if false it will send response to master and generate response if true it will take user input"
     )
