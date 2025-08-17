@@ -40,13 +40,12 @@ class AgentUtils:
 
         out = ToolCall()
         call_tool_line = None
-        query = None
         lines = text.split("\n")
         for idx, line in enumerate(lines):
             if line.startswith("call_tool"):
                 call_tool_line = line
                 if (idx + 1) < len(lines):
-                    query = lines[idx + 1]
+                    call_tool_line += "\n"+lines[idx + 1]
                 break
 
         

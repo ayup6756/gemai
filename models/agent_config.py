@@ -30,3 +30,5 @@ class AgentConfig(BaseModel):
         default=True,
         description="if false it will send response to master and generate response if true it will take user input"
     )
+
+    recall: bool = False

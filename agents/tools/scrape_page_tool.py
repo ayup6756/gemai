@@ -1,37 +1,95 @@
-import time
+import json
+import undetected_chromedriver as uc
 from urllib.parse import urlparse
+
+import selenium.webdriver
 from models.agent import AgentTool
-import requests
+
 from bs4 import BeautifulSoup
 
 
 class ScrapePageTool(AgentTool):
     def __init__(self):
-        self.description = "gets the textual contents from webpage after parsing the html"
+        self.description = "gets the textual contents from webpage after parsing the html you can use it to search on google too with url https://www.google.com/search?q=\{query\}"
         self.tool_id = "ScrapePage"
         self.input_fields_description = {
             "url": "url to get the contents from"
         }
     
     def extract_main_text(self, url) -> str:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        try:
+            options = uc.ChromeOptions()
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
 
-        # Remove common unwanted sections
-        for tag in soup(['header', 'footer', 'nav', 'aside']):
-            tag.decompose()
+            options.binary_location = "/usr/bin/chromium"
+            driver = uc.Chrome(options=options)
+            driver.get(url)
 
-        # Optionally remove elements by common class/id patterns
-        for class_name in ['sidebar', 'side', 'ads', 'advertisement']:
-            for tag in soup.select(f'.{class_name}, #{class_name}'):
+            status_code = 100
+            content_type = "text/plain"
+            page_data = driver.page_source
+
+            logs = driver.get_log("performance")
+
+            for log in logs:
+                message = log["message"]
+                if "Network.responseReceived" not in message:
+                    continue
+                params = json.loads(message)["message"].get("params")
+                if not params:
+                    continue
+                response = params.get("response")
+                if not response:
+                    continue
+                if url == response["url"]:
+                    content_type = response['headers']['content-type']
+                    status_code = response['status']
+
+
+            # for r in driver.requests:
+            #     if r.url == url:
+            #         status_code = r.response.status_code
+            #         content_type = r.response.headers.get_content_type()
+            
+            driver.quit()
+
+            if "text/html" not in content_type:
+                return "content wasn't html"
+            
+            if status_code != 200:
+                return "webpage returned status "+str(status_code)
+
+            soup = BeautifulSoup(page_data, 'html.parser')
+
+            # Remove common unwanted sections
+            for tag in soup(['header', 'footer', 'nav', 'aside']):
                 tag.decompose()
 
-        # Try to find the main content
-        candidates = soup.find_all(['article', 'div'], recursive=True)
+            # Optionally remove elements by common class/id patterns
+            for class_name in ['sidebar', 'side', 'ads', 'advertisement']:
+                for tag in soup.select(f'.{class_name}, #{class_name}'):
+                    tag.decompose()
 
-        # Extract and clean up the text
-        text = "\n".join(filter(lambda x: len(x) > 1, [candidate.get_text(separator='\n', strip=True) for candidate in candidates]))
-        return text
+            # Try to find candidate content containers
+            text = soup.get_text(separator=" ", strip=True)
+
+            # # Extract and clean up the text
+            # text = "\n".join(
+            #     filter(lambda x: len(x) > 1, [
+            #         candidate.get_text(separator='\n', strip=True)
+            #         for candidate in candidates
+            #     ])
+            # )
+
+            print(text)
+
+            return text if text else "failed to scrape"
+
+        except Exception:
+            return "failed to scrape"
+
 
     def validate_url(self, url) -> bool:
         urlparsed = urlparse(url)
