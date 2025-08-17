@@ -27,9 +27,9 @@ def main():
             model_name="gemini-2.0-flash-preview-image-generation",
             save_history=True,
             description="This agent can generate image from a given text",
-            main_prompt="you are useful assistant.",
+            main_prompt="you are useful image generator you generate high quality images.",
             agent_id="image_gen",
-            notify_master=False
+            notify_master=True
         )
     )
 
@@ -44,6 +44,7 @@ def main():
             take_user_input = True
 
         output = master.generate_response(user_input)
+        # reset user input for this interaction
         user_input = None
 
         if not output:
@@ -61,12 +62,12 @@ def main():
 
             if output:
                 print(f"Took {output.duration} seconds")
-                master.add_model_history(
+                master.add_user_content_history(
                     worker_agent.process_output(output=output)
                 )
                 # redirect to user if notify master is false
                 take_user_input = False if worker_agent.agent_config.notify_master else True
             else:
-                master.add_model_text_history("Agent failed")
+                master.add_user_history("Agent failed")
 
 main()
