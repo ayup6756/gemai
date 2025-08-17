@@ -2,7 +2,6 @@ import json
 import undetected_chromedriver as uc
 from urllib.parse import urlparse
 
-import selenium.webdriver
 from models.agent import AgentTool
 
 from bs4 import BeautifulSoup
@@ -10,7 +9,7 @@ from bs4 import BeautifulSoup
 
 class ScrapePageTool(AgentTool):
     def __init__(self):
-        self.description = "gets the textual contents from webpage after parsing the html you can use it to search on google too with url https://www.google.com/search?q=\{query\}"
+        self.description = "gets the textual contents from webpage after parsing the html you can use it to search on google too with url https://www.google.com/search?q={query}"
         self.tool_id = "ScrapePage"
         self.input_fields_description = {
             "url": "url to get the contents from"

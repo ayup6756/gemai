@@ -32,8 +32,7 @@ class GeminiFlash(MasterAgent):
         self.contents.append(types.UserContent(parts=[types.Part.from_text(text=text)]))
 
     def add_user_content_history(self, content: types.Content):
-        content.role = "user"
-        self.contents.append(content)
+        self.contents.append(types.UserContent(parts=content.parts))
 
     def add_model_text_history(self, text: str):
         self.contents.append(
@@ -54,7 +53,7 @@ class GeminiFlash(MasterAgent):
         self.main_prompt += str(worker_agent)
 
     def generate_response(self, text: str) -> AgentOutput:
-        self.agent_config.take_user_input = True
+        self.agent_config.recall_itself = False
         print(self.agent_config.agent_id + ">")
         if len(self.contents) == 0:
             self.contents.append(
@@ -84,6 +83,7 @@ class GeminiFlash(MasterAgent):
             return None
 
     def process_output(self, output) -> AgentCall:
+        self.agent_config.recall_itself = False
         agent_call_data = AgentCall()
         tool_call_data = ToolCall()
 
@@ -99,12 +99,15 @@ class GeminiFlash(MasterAgent):
                     tool_list=list(self.tools.keys()),
                 )
 
+                if agent_call_data.name and agent_call_data.query:
+                    self.agent_config.recall_itself = True
+
                 if tool_call_data.name:
                     print(f"Tool {tool_call_data.name}>")
                     tool = self.tools[tool_call_data.name]
                     tool_output = tool.run(tool_call_data.query)
                     self.add_user_history(tool_output)
-                    self.agent_config.take_user_input = False
+                    self.agent_config.recall_itself = True
 
             if part.inline_data:
                 self.term_display.show_image(part.inline_data.data)
@@ -122,7 +125,40 @@ class GeminiFlash(MasterAgent):
         self.main_prompt += str(tool)
     
     def run(self, text: str):
-        pass
+        output = self.generate_response(text=text)
+
+        if not output:
+            content = types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
+            self.add_user_content_history(content=content)
+            return content
+        
+        print(f"Took {output.duration} seconds")
+
+        agent_call_data = self.process_output(output=output)
+
+        content = None
+
+        if agent_call_data.name and agent_call_data.query:
+            agent = self.agents[agent_call_data.name]
+            content = agent.run(agent_call_data.query)
+            self.add_user_content_history(content=content)
+
+        while self.agent_config.recall_itself:
+            # reset the recall_itself
+            self.agent_config.recall_itself = False
+            output = self.generate_response(text=None)
+            if not output:
+                content = types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
+                self.add_user_content_history(content=content)
+                return content
+            agent_call_data = self.process_output(output=output)
+
+            if agent_call_data.name and agent_call_data.query:
+                agent = self.agents[agent_call_data.name]
+                content = agent.run(agent_call_data.query)
+                self.add_user_content_history(content=content)
+
+        return content
 
 
 class GeminiWorker(WorkerAgent):
@@ -143,19 +179,19 @@ class GeminiWorker(WorkerAgent):
         self.contents.append(content)
 
     def generate_response(self, text: str) -> AgentOutput:
-        self.agent_config.take_user_input = True
         print(self.agent_config.agent_id + ">")
-        if len(self.contents) == 1:
+        if len(self.contents) == 0:
             self.contents.append(
                 types.UserContent(parts=[types.Part.from_text(text=self.main_prompt)])
             )
-        if self.agent_config.save_history:
-            self.add_user_history(text)
-        else:
-            self.contents = [
-                types.UserContent(parts=[types.Part.from_text(text=self.main_prompt)]),
-                types.UserContent(parts=[types.Part.from_text(text=text)]),
-            ]
+        if text:
+            if self.agent_config.save_history:
+                self.add_user_history(text)
+            else:
+                self.contents = [
+                    types.UserContent(parts=[types.Part.from_text(text=self.main_prompt)]),
+                    types.UserContent(parts=[types.Part.from_text(text=text)]),
+                ]
 
         try:
             start = time.time()
@@ -190,16 +226,16 @@ class GeminiWorker(WorkerAgent):
         self.main_prompt += str(tool)
 
     def process_output(self, output: AgentOutput) -> types.Content:
-        self.agent_config.recall_itself = False
-        pop_index = None
+        parts = []
+
         for i, part in enumerate(output.content.parts):
             if part.text:
                 self.term_display.show_text(part.text)
-                pop_index = i
                 tool_call_data = AgentUtils.identify_tool_call(
                     text=part.text,
                     tool_list=list(self.tools.keys()),
                 )
+                parts.append(part)
 
                 if tool_call_data.name:
                     print(f"Tool {tool_call_data.name}>")
@@ -212,27 +248,28 @@ class GeminiWorker(WorkerAgent):
             if part.inline_data:
                 self.term_display.show_image(part.inline_data.data)
 
-        if pop_index or pop_index == 0:
-            output.content.parts.pop(pop_index)
-
-        self.agent_config.take_user_input = False
+        output.content.parts = parts
         return output.content
     
     def run(self, text: str) -> types.Content:
+        self.agent_config.save_history = True
 
         output = self.generate_response(text=text)
 
-        self.agent_config.save_history = True
         if not output:
-            return "Agent failed"
+            return types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
         
         print(f"Took {output.duration} seconds")
 
         content = self.process_output(output=output)
 
         while self.agent_config.recall_itself:
-             output = self.generate_response(text=text)
-             content = self.process_output(output=output)
+            # reset the recall_itself
+            self.agent_config.recall_itself = False
+            output = self.generate_response(text=None)
+            if not output:
+                return types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
+            content = self.process_output(output=output)
 
         
         self.agent_config.save_history = False

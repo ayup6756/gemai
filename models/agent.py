@@ -1,7 +1,16 @@
 from abc import ABC, abstractmethod
+from typing import Union
 from google.genai import types
 from pydantic import BaseModel
 from models.agent_config import AgentConfig
+
+class AgentCall(BaseModel):
+    name: str = None
+    query: str = None
+
+class ToolCall(BaseModel):
+    name: str = None
+    query: dict = None
 
 
 class AgentTool(ABC):
@@ -52,17 +61,13 @@ class Agent(ABC):
     def process_output(self, output: AgentOutput) -> types.Content:
         pass
 
+    @abstractmethod
+    def run(self, text: str) -> types.Content:
+        pass
+
     def __str__(self):
         return f"{self.agent_config.agent_id} - {self.agent_config.description}"
 
-
-class AgentCall(BaseModel):
-    name: str = None
-    query: str = None
-
-class ToolCall(BaseModel):
-    name: str = None
-    query: dict = None
 
 class WorkerAgent(Agent):
     pass

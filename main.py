@@ -42,7 +42,7 @@ def main():
             model_name="gemini-2.0-flash",
             save_history=False,
             description="This agent can scrape website from given url and parse it and do browsing related stuff including search",
-            main_prompt="you are useful webscraping agent you can scrape a website and format in it a way requested.",
+            main_prompt="you are webscraping assistant. You can use tools to get textual contents of url with tools and you should process it",
             agent_id="scrape_website",
             take_user_input=False
         ),
@@ -54,54 +54,11 @@ def main():
     master.add_worker_agent(gemini_webscraper_agent)
     master.add_tool(GetTimeTool())
 
-    print(master.main_prompt)
-
-    take_user_input = True
     while True:
-        if take_user_input:
-            user_input = input("user> ")
-            if not user_input:
-                continue
-        else:
-            # will take user input in next iteration
-            take_user_input = True
-
-        output = master.generate_response(user_input)
-        # reset user input for this interaction
-        user_input = None
-
-        if not output:
+        user_input = input("user> ")
+        if not user_input:
             continue
 
-        print(f"Took {output.duration} seconds")
-        agent_call_data = master.process_output(output=output)
-        take_user_input = master.agent_config.take_user_input
-
-        if agent_call_data.name and agent_call_data.query:
-            worker_agent = master.agents[agent_call_data.name]
-
-            first_call = True
-
-            processed_output = None
-
-            while worker_agent.agent_config.recall_itself or first_call:
-                first_call = False
-                output = worker_agent.generate_response(agent_call_data.query)
-
-                if output:
-                    print(f"Took {output.duration} seconds")
-                    print(output)
-                    processed_output = worker_agent.process_output(output=output)
-
-                    take_user_input = worker_agent.agent_config.take_user_input
-                else:
-                    processed_output = None
-                    break
-
-            if processed_output:
-                master.add_user_content_history(
-                        worker_agent.process_output(output=output)
-                    )
-    
+        master.run(user_input)
 
 main()
