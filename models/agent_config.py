@@ -31,4 +31,4 @@ class AgentConfig(BaseModel):
         description="if false it will send response to master and generate response if true it will take user input"
     )
 
-    recall: bool = False
+    recall_itself: bool = False

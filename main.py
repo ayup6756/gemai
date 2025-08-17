@@ -84,7 +84,7 @@ def main():
 
             processed_output = None
 
-            while worker_agent.agent_config.recall or first_call:
+            while worker_agent.agent_config.recall_itself or first_call:
                 first_call = False
                 output = worker_agent.generate_response(agent_call_data.query)
 

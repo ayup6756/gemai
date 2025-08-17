@@ -120,6 +120,9 @@ class GeminiFlash(MasterAgent):
 
         self.main_prompt += "\n"
         self.main_prompt += str(tool)
+    
+    def run(self, text: str):
+        pass
 
 
 class GeminiWorker(WorkerAgent):
@@ -187,7 +190,7 @@ class GeminiWorker(WorkerAgent):
         self.main_prompt += str(tool)
 
     def process_output(self, output: AgentOutput) -> types.Content:
-        self.agent_config.recall = False
+        self.agent_config.recall_itself = False
         pop_index = None
         for i, part in enumerate(output.content.parts):
             if part.text:
@@ -203,7 +206,8 @@ class GeminiWorker(WorkerAgent):
                     tool = self.tools[tool_call_data.name]
                     tool_output = tool.run(tool_call_data.query)
                     self.add_user_history(tool_output)
-                    self.agent_config.recall = True
+                    self.agent_config.recall_itself = True
+
 
             if part.inline_data:
                 self.term_display.show_image(part.inline_data.data)
@@ -213,3 +217,24 @@ class GeminiWorker(WorkerAgent):
 
         self.agent_config.take_user_input = False
         return output.content
+    
+    def run(self, text: str) -> types.Content:
+
+        output = self.generate_response(text=text)
+
+        self.agent_config.save_history = True
+        if not output:
+            return "Agent failed"
+        
+        print(f"Took {output.duration} seconds")
+
+        content = self.process_output(output=output)
+
+        while self.agent_config.recall_itself:
+             output = self.generate_response(text=text)
+             content = self.process_output(output=output)
+
+        
+        self.agent_config.save_history = False
+
+        return content
