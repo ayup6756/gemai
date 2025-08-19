@@ -107,9 +107,9 @@ class GeminiFlash(MasterAgent):
                     tool = self.tools[tool_call_data.name]
                     tool_output = tool.run(tool_call_data.query)
                     if tool_output:
-                        self.add_model_text_history(tool_output)
+                        self.add_user_history(tool_output)
                     else:
-                        self.add_model_text_history("Tool failed")
+                        self.add_user_history("Tool failed")
                     self.agent_config.recall_itself = True
 
             if part.inline_data:
@@ -132,7 +132,7 @@ class GeminiFlash(MasterAgent):
 
         if not output:
             content = types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
-            self.add_model_history(content=content)
+            self.add_user_content_history(content=content)
             return content
         
         print(f"Took {output.duration} seconds")
@@ -144,7 +144,7 @@ class GeminiFlash(MasterAgent):
         if agent_call_data.name and agent_call_data.query:
             agent = self.agents[agent_call_data.name]
             content = agent.run(agent_call_data.query)
-            self.add_model_history(content=content)
+            self.add_user_content_history(content=content)
 
         while self.agent_config.recall_itself:
             # reset the recall_itself
@@ -152,14 +152,14 @@ class GeminiFlash(MasterAgent):
             output = self.generate_response(text=None)
             if not output:
                 content = types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
-                self.add_model_history(content=content)
+                self.add_user_content_history(content=content)
                 return content
             agent_call_data = self.process_output(output=output)
 
             if agent_call_data.name and agent_call_data.query:
                 agent = self.agents[agent_call_data.name]
                 content = agent.run(agent_call_data.query)
-                self.add_model_history(content=content)
+                self.add_user_content_history(content=content)
 
         return content
 
@@ -245,9 +245,9 @@ class GeminiWorker(WorkerAgent):
                     tool = self.tools[tool_call_data.name]
                     tool_output = tool.run(tool_call_data.query)
                     if tool_output:
-                        self.add_model_history(types.ModelContent(parts=[types.Part.from_text(text=tool_output)]))
+                        self.add_user_history(tool_output)
                     else:
-                        self.add_model_history(types.ModelContent(parts=[types.Part.from_text(text="Tool failed")]))
+                        self.add_user_history("Tool failed")
 
                     self.agent_config.recall_itself = True
 
@@ -264,7 +264,7 @@ class GeminiWorker(WorkerAgent):
         output = self.generate_response(text=text)
 
         if not output:
-            return types.ModelContent(parts=[types.Part.from_text(text="Agent failed")])
+            return types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
         
         print(f"Took {output.duration} seconds")
 
@@ -275,7 +275,7 @@ class GeminiWorker(WorkerAgent):
             self.agent_config.recall_itself = False
             output = self.generate_response(text=None)
             if not output:
-                return types.ModelContent(parts=[types.Part.from_text(text="Agent failed")])
+                return types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
             content = self.process_output(output=output)
 
         

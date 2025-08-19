@@ -42,7 +42,7 @@ def main():
             model_name="gemini-2.0-flash",
             save_history=False,
             description="This agent can scrape website from given url and parse it and do browsing related stuff including search",
-            main_prompt="you are webscraping assistant. You can use tools to get textual contents of url with tools and you should process it",
+            main_prompt="you are useful assistant. You can use tools to get textual contents of url with tools and you have to summarize it and keep the key points",
             agent_id="scrape_website",
             take_user_input=False
         ),
