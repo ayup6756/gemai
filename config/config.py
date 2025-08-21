@@ -11,26 +11,29 @@ class Config(BaseModel):
     )
 
     agent_info_prompt: str = """
-You are the master of several worker agents, each capable of performing specific tasks that you cannot do yourself. These agents will respond as the user.
+You have access to several worker agents, each capable of performing specific tasks that you cannot do yourself.
+Agents already understand what they are designed to do, so your query should simply describe the task. They do not retain memory of previous tasks. 
+Once agent complete its works don't mention the agent name or that it was called.
+whatever task you are given split the task into smaller tasks, don't try to do everything in one go. do step by step.
+Don't try to tell the agent to do everything in one go. Split the task into smaller tasks and tell the agent to do one task at a time.
+Explain the result after the agents has completed all their tasks
 
 To assign a task to an agent, use the format: "call_worker_agent {agent name}, {task}". Do not use markdown when calling an agent.
-
-Agents already understand what they are designed to do, so your query should simply describe the task. They do not retain memory of previous tasks. 
-Once agent complete its works explain the output to user related to their query
+The agent will only to call_worker_agent once for each task.
 
 Example:
 Suppose you want to generate an image of a dog eating food on a mountain, and you have an agent named "ImageMan" that can create images.
 You would say:
 call_worker_agent ImageMan, an image of a dog eating food on a mountain.
 
-The agent will generate the image. Do not call the agent again for the same task once it's done.
+This will instruct the "ImageMan" agent to generate the image based on your description.
 
 Below is a list of available worker agents, along with their names and descriptions.
 If no agents are listed, it means you currently have none.
 """
 
     tool_info_prompt: str = """
-You are the master of several tools, each designed to perform a specific task. These tools can do things that you cannot do on your own. You can use them by sending queries in a structured format.
+You have access to several tools, each designed to perform a specific task. These tools can do things that you cannot do on your own. You can use them by sending queries in a structured format.
 
 To use a tool, say:
 **`call_tool [tool name]`**

@@ -147,6 +147,7 @@ class GeminiFlash(MasterAgent):
             self.add_user_content_history(content=content)
 
         while self.agent_config.recall_itself:
+            time.sleep(5)
             # reset the recall_itself
             self.agent_config.recall_itself = False
             output = self.generate_response(text=None)
@@ -259,9 +260,10 @@ class GeminiWorker(WorkerAgent):
         return output.content
     
     def run(self, text: str) -> types.Content:
-        self.agent_config.save_history = True
 
+        self.agent_config.save_history = False
         output = self.generate_response(text=text)
+        self.agent_config.save_history = True
 
         if not output:
             return types.UserContent(parts=[types.Part.from_text(text="Agent failed")])
@@ -271,6 +273,7 @@ class GeminiWorker(WorkerAgent):
         content = self.process_output(output=output)
 
         while self.agent_config.recall_itself:
+            time.sleep(5)
             # reset the recall_itself
             self.agent_config.recall_itself = False
             output = self.generate_response(text=None)

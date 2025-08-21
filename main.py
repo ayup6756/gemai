@@ -41,8 +41,8 @@ def main():
             api_key=GOOGLE_API_KEY,
             model_name="gemini-2.0-flash",
             save_history=False,
-            description="This agent can scrape website from given url and parse it and do browsing related stuff including search",
-            main_prompt="you are useful assistant. You can use tools to get textual contents of url with tools and you have to summarize it and keep the key points",
+            description="This agent search capabilties and do browsing related stuff including search",
+            main_prompt="you are worker assistant of master. You can use tools to get textual contents (not html) of url with tools and you have to summarize it and keep the key points. Nothing extra. No i can do this or that",
             agent_id="scrape_website",
             take_user_input=False
         ),

@@ -7,15 +7,15 @@ from models.agent import AgentTool
 from bs4 import BeautifulSoup
 
 
-class ScrapePageTool(AgentTool):
+class GoogleSearchTool(AgentTool):
     def __init__(self):
-        self.description = "gets the textual contents (not html) from url and you can use it to search on google with https://www.google.com/search?q={query}"
-        self.tool_id = "ScrapeWebPage"
+        self.description = "performs a Google search and returns the top results."
+        self.tool_id = "GoogleSearchTool"
         self.input_fields_description = {
-            "url": "url to get the contents from"
+            "query": "query to search on Google"
         }
     
-    def extract_main_text(self, url) -> str:
+    def extract_data(self, url) -> str:
         try:
             # webdriver.DesiredCapabilities.CHROME[''] = {'performance': 'ALL'}
             options = webdriver.ChromeOptions()
@@ -89,7 +89,7 @@ class ScrapePageTool(AgentTool):
             #     ])
             # )
 
-            # print(text)
+            print(text)
 
             return text if text else "failed to scrape"
 
@@ -116,5 +116,5 @@ class ScrapePageTool(AgentTool):
             return "url wasn't valid"
         
         print("Scraping the page..", url)
-        text = self.extract_main_text(url)
+        text = self.extract_data(url)
         return f"Below is the textual contents of url {url}\n{text}"

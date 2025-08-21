@@ -32,7 +32,10 @@ class TerminalDisplay:
         image.save(img_path)
 
         if self.kitten_available:
-            subprocess.run(["kitten", "icat", f"{img_path}"], check=True)
+            try:
+                subprocess.run(["kitten", "icat", f"{img_path}"], check=True)
+            except subprocess.CalledProcessError:
+                print(f"[ERROR] Failed to display image with `kitten`. Saved image at: {img_path}") 
         else:
             print(f"[INFO] `kitten` not found. Saved image at: {img_path}")
 
