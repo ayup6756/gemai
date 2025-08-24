@@ -1,21 +1,26 @@
 import json
+from pathlib import Path
+from pydantic import BaseModel
 import undetected_chromedriver as webdriver
+
 # import selenium.webdriver as webdriver
-from urllib.parse import urlparse
 from models.agent import AgentTool
 
 from bs4 import BeautifulSoup
+from bs4.element import Tag
+
+
+class GoogleSearchResult(BaseModel):
+    url: str
 
 
 class GoogleSearchTool(AgentTool):
     def __init__(self):
         self.description = "performs a Google search and returns the top results."
         self.tool_id = "GoogleSearchTool"
-        self.input_fields_description = {
-            "query": "query to search on Google"
-        }
-    
-    def extract_data(self, url) -> str:
+        self.input_fields_description = {"query": "query to search on Google"}
+
+    def extract_data(self, url) -> str | None:
         try:
             # webdriver.DesiredCapabilities.CHROME[''] = {'performance': 'ALL'}
             options = webdriver.ChromeOptions()
@@ -27,7 +32,7 @@ class GoogleSearchTool(AgentTool):
             # options.add_argument("--disable-infobars")
             # options.add_argument("--disable-features=VizDisplayCompositor")
             options.add_argument("--disable-blink-features=AutomationControlled")
-            options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+            options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
             options.binary_location = "/usr/bin/chromium"
             driver = webdriver.Chrome(options=options)
@@ -50,71 +55,118 @@ class GoogleSearchTool(AgentTool):
                 if not response:
                     continue
                 if url == response["url"]:
-                    content_type = response['headers']['content-type']
-                    status_code = response['status']
-
+                    content_type = response["headers"]["content-type"]
+                    status_code = response["status"]
 
             # for r in driver.requests:
             #     if r.url == url:
             #         status_code = r.response.status_code
             #         content_type = r.response.headers.get_content_type()
-            
+
             driver.quit()
 
             if "text/html" not in content_type:
                 return "content wasn't html"
-            
+
             if status_code != 200:
-                return "webpage returned status "+str(status_code)
+                return "webpage returned status " + str(status_code)
 
-            soup = BeautifulSoup(page_data, 'html.parser')
-
-            # Remove common unwanted sections
-            for tag in soup(['header', 'footer', 'nav', 'aside']):
-                tag.decompose()
-
-            # Optionally remove elements by common class/id patterns
-            for class_name in ['sidebar', 'side', 'ads', 'advertisement']:
-                for tag in soup.select(f'.{class_name}, #{class_name}'):
-                    tag.decompose()
-
-            # Try to find candidate content containers
-            text = soup.get_text(separator=" ", strip=True)
-
-            # # Extract and clean up the text
-            # text = "\n".join(
-            #     filter(lambda x: len(x) > 1, [
-            #         candidate.get_text(separator='\n', strip=True)
-            #         for candidate in candidates
-            #     ])
-            # )
-
-            print(text)
-
-            return text if text else "failed to scrape"
+            return page_data
 
         except Exception as e:
             print(f"Error while scraping the page: {e}")
-            return "failed to scrape"
+            return None
 
+    def find_first_element(
+        self, tag: str, elem: Tag, depth: int
+    ) -> Tag:
+        out: Tag = None
 
-    def validate_url(self, url) -> bool:
-        urlparsed = urlparse(url)
-        if not (urlparsed.scheme == "https" or urlparsed.scheme == "http") or not urlparsed.netloc:
-            return False
+        for i in range(depth):
+            if i == 0:
+                out = elem
+                result = elem.find(tag, recursive=False)
+                if not result:
+                    break
+                out = result
+            else:
+                result = out.find(tag, recursive=False)
+                if not result:
+                    break
+                out = result
+
+        return out
+
+    def parse_google_search_results(self, query: str) -> list[GoogleSearchResult]:
+        data = self.extract_data(f"https://www.google.com/search?q={query}")
+        (Path(__file__).parent / ".." / ".." / "data" / "google.html").write_text(data)
+        if not data:
+            return []
+        soup = BeautifulSoup(data, "html.parser")
+        results = []
+
+        search_div = soup.find("div", {"id": "search"})
+
+        if not search_div:
+            print("No search results found.")
+            return []
+        (Path(__file__).parent / ".." / ".." / "data" / "search.html").write_text(
+            str(search_div)
+        )
+
+        results_div: Tag = self.find_first_element("div", search_div, 2)
+
+        results_ = results_div.find_all("div", recursive=False)
+
+        items = []
+        candidates = []
+        tags = []
+        atags = []
         
-        return True
+        for result in results_:
+            if not result:
+                continue
+            if len(result.contents) == 1:
+                result = self.find_first_element("div", result, 5)
+                items.append(len(result.contents))
+                candidates.append(result)
+                tags.append(str(result))
+                atag = result.find("a", attrs={
+                    "href":True,
+                    "ping": True,
+                    "data-ved": True,
+                })
+
+                if atag:
+                    atags.append(str(atag))
+
+        (Path(__file__).parent / ".." / ".." / "data" / "results.html").write_text(
+            "\n".join(tags)
+        )
+        (Path(__file__).parent / ".." / ".." / "data" / "atags.html").write_text(
+            "\n".join(atags)
+        )
+
+
+
+        print("Number of items in the large div:", items)
+
+        return results
 
     def run(self, query: dict) -> str:
-        url =  query.get("url")
-        if not url:
-            print("url wasn't provided")
-            return "url wasn't provided"
-        
-        if not self.validate_url(url):
-            print("url wasn't valid")
-            return "url wasn't valid"
-        
-        print("Scraping the page..", url)
-        text = self.extract_data(url)
-        return f"Below is the textual contents of url {url}\n{text}"
+        q = query.get("query")
+        if not q:
+            print("query wasn't provided")
+            return "query wasn't provided"
+
+        print("Seaching the query..", q)
+        results = self.parse_google_search_results(q)
+
+        if len(results) == 0:
+            return "No results found for the query: " + q
+
+        output = "Results of query: " + q + "\n"
+        for i, result in enumerate(results):
+            output += f"{i + 1}. {result.title} - {result.url}\n"
+
+        return output
