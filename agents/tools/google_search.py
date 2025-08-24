@@ -118,19 +118,11 @@ class GoogleSearchTool(AgentTool):
 
         results_ = results_div.find_all("div", recursive=False)
 
-        items = []
-        candidates = []
-        tags = []
-        atags = []
-        
         for result in results_:
             if not result:
                 continue
             if len(result.contents) == 1:
                 result = self.find_first_element("div", result, 5)
-                items.append(len(result.contents))
-                candidates.append(result)
-                tags.append(str(result))
                 atag = result.find("a", attrs={
                     "href":True,
                     "ping": True,
@@ -138,18 +130,7 @@ class GoogleSearchTool(AgentTool):
                 })
 
                 if atag:
-                    atags.append(str(atag))
-
-        (Path(__file__).parent / ".." / ".." / "data" / "results.html").write_text(
-            "\n".join(tags)
-        )
-        (Path(__file__).parent / ".." / ".." / "data" / "atags.html").write_text(
-            "\n".join(atags)
-        )
-
-
-
-        print("Number of items in the large div:", items)
+                    results.append(GoogleSearchResult(url=atag["href"]))
 
         return results
 
@@ -167,6 +148,6 @@ class GoogleSearchTool(AgentTool):
 
         output = "Results of query: " + q + "\n"
         for i, result in enumerate(results):
-            output += f"{i + 1}. {result.title} - {result.url}\n"
+            output += f"{i + 1}. {result.url}\n"
 
         return output
